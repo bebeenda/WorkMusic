@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bateria Interativa</title>
+<link href="https://fonts.googleapis.com/css2?family=Cute+Font&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+
+/* =====================================================
+   RESET — mesmo padrão do original
+===================================================== */
+*, *:before, *:after {
+  position: relative;
+  box-sizing: border-box;
+}
+*:before, *:after { content: ""; position: absolute; }
+
+html, body { width: 100%; height: 100%; margin: 0; padding: 0; }
+
+/* =====================================================
+   CORES (idênticas ao original)
+===================================================== */
+:root {
+  --bg:               #7a7a7a;
+  --drum-rim:         #b0b8c0;
+  --drum-head:        #F7ECDC;
+  --drum-head-shadow: #E9DFD2;
+  --drum-shell:       #3a5c3a;
+  --drum-shell-dark:  #233823;
+  --drum-foot:        #8a9298;
+  --cymbal:           #ffd65d;
+  --cymbal-dark:      #c9a020;
+}
+
+/* =====================================================
+   BODY
+===================================================== */
+body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(120% 100% at 50% 40%, #888888 0%, #757575 55%, #636363 100%);
+  font-family: 'Cute Font', cursive;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+/* =====================================================
+   WRAPPER — aumentado para caber só o kit
+===================================================== */
+.wrapper {
+  position: relative;
+  width: 400px;
+  height: 300px;
+  transform-origin: center center; /* escala dinâmica aplicada via JS (fitKit) */
+}
+
+/* =====================================================
+   DRUM CONTAINER — deslocado para dar espaço aos pratos à esquerda
+===================================================== */
+.drum {
+  position: absolute;
+  top: 0; left: 75px; /* bumbo como ponto central: centro do bumbo = x200 (centro do palco) */
+  width: 300px; height: 100%;
+}
+
+/* =====================================================
+   RIM
+===================================================== */
+.rim { position: absolute; width: 100%; height: 100%; }
+.rim div {
+  position: absolute;
+  left: -3px;
+  width: calc(100% + 6px);
+  height: 3px;
+  border-radius: 10px;
+  background: var(--drum-rim);
+}
+
+/* =====================================================
+   RUG (tension rods)
+===================================================== */
+.rug { position: absolute; width: 100%; height: 100%; }
+.rug div {
+  position: absolute;
+  width: 5px; height: 12px;
+  background: var(--drum-rim);
+}
+.rug div:before { left: 2px; width: 1px; height: 12px; background: var(--drum-rim); }
+.rug div.top:before    { top: -10px; }
+.rug div.bottom:before { bottom: -10px; }
+
+/* =====================================================
+   CURSOR POINTER em todos os elementos clicáveis
+===================================================== */
+.bass, .floor, .snare, .hightam, .midtam, .hi-hat-cymbal, .ride-cymbal, .crash-cymbal {
+  cursor: pointer;
+}
+
+/* =====================================================
+   BASS DRUM
+===================================================== */
+.bass {
+  position: absolute;
+  top: 155px; left: 65px;
+  width: 120px; height: 120px;
+}
+.bass .head {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  border-radius: 50%;
+  background: #0a0a0a url('data:image/png;base64,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') center / cover no-repeat;
+  border: 3px solid var(--drum-rim);
+  overflow: hidden;
+}
+.bass .head:before { content: none; }
+.bass span {
+  display: block; position: absolute;
+  bottom: 4px; width: 5px; height: 10px;
+  background: var(--drum-rim);
+}
+.bass span:after { top: 10px; left: -1px; width: 7px; height: 12px; background: var(--drum-foot); }
+.bass span:nth-of-type(1) { left: 20px;  transform: rotate(30deg); }
+.bass span:nth-of-type(2) { right: 20px; transform: rotate(-30deg); }
+
+/* =====================================================
+   FLOOR TOM (surdo)
+   pernas alongadas para alcançar a linha do chão (y=284)
+===================================================== */
+.floor {
+  position: absolute;
+  top: 152px; left: 40px;
+  width: 52px; height: 90px;
+}
+.floor .tam {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: var(--drum-shell-dark);
+  overflow: hidden;
+}
+.floor .tam:before {
+  top: -25px; left: -2px;
+  width: 150%; height: 122%;
+  background: #4a7a4a;
+  border-radius: 50%;
+}
+.floor .tam .rim div:nth-of-type(1) { top: 0; }
+.floor .tam .rim div:nth-of-type(2) { bottom: 0; }
+.floor .tam .rug div:nth-of-type(1) { top: 10px;    left: 8px; }
+.floor .tam .rug div:nth-of-type(2) { top: 10px;    right: 8px; }
+.floor .tam .rug div:nth-of-type(3) { bottom: 10px; left: 8px; }
+.floor .tam .rug div:nth-of-type(4) { bottom: 10px; right: 8px; }
+.floor span {
+  display: block; position: absolute;
+  bottom: -42px; width: 5px; height: 66px;
+  background: var(--drum-rim);
+}
+.floor span:before { top: 7px;  left: -2px; width: 10px; height: 12px; background: var(--drum-foot); }
+.floor span:after  { top: 47px; left: -1px; width: 7px;  height: 19px; background: var(--drum-foot); }
+.floor span:nth-of-type(1) { left: -8px;  transform: rotate(6deg); }
+.floor span:nth-of-type(2) { right: -8px; transform: rotate(-6deg); }
+
+/* =====================================================
+   SNARE (caixa)
+===================================================== */
+.snare {
+  position: absolute;
+  top: 145px; left: 140px;
+  width: 60px; height: 30px;
+}
+.snare .tam {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: var(--drum-shell-dark);
+  transform: rotate(0deg);
+  overflow: hidden;
+}
+.snare .tam:before {
+  top: -15px; left: -35px;
+  width: 150%; height: 122%;
+  background: #4a7a4a;
+  border-radius: 50%;
+}
+.snare .tam .rim div:nth-of-type(1) { top: 0; }
+.snare .tam .rim div:nth-of-type(2) { bottom: 0; }
+.snare .tam .rug div:nth-of-type(1) { top: 10px;    left: 12px; }
+.snare .tam .rug div:nth-of-type(2) { top: 10px;    right: 12px; }
+.snare .tam .rug div:nth-of-type(3) { bottom: 10px; left: 12px; }
+.snare .tam .rug div:nth-of-type(4) { bottom: 10px; right: 12px; }
+.snare span { display: block; position: absolute; width: 5px; background: var(--drum-rim); }
+.snare span:nth-of-type(1) { left: 26px; bottom: -109px; width: 5px; height: 110px; transform: rotate(0); }
+.snare span:nth-of-type(1):before { top: 57px; left: -3px; width: 11px; height: 8px; background: var(--drum-foot); }
+.snare span:nth-of-type(1):after  { top: 98px; left: -1px; width: 7px; height: 13px; background: var(--drum-foot); }
+.snare span:nth-of-type(2) { right: 19px; bottom: -109px; height: 45px; transform: rotate(-23deg); }
+.snare span:nth-of-type(2):after { top: 33px; left: -1px; width: 7px; height: 13px; background: var(--drum-foot); }
+.snare span:nth-of-type(3) { left: 16px; bottom: -109px; height: 45px; transform: rotate(23deg); }
+.snare span:nth-of-type(3):after { top: 33px; left: -1px; width: 7px; height: 13px; background: var(--drum-foot); }
+
+/* =====================================================
+   HIGH TOM (tom1) e MID TOM (tom2)
+===================================================== */
+.hightam, .midtam {
+  position: absolute;
+  top: 114px; left: 90px;
+  width: 45px; height: 40px;
+}
+.midtam { top: 110px; left: 139px; }
+.hightam .tam, .midtam .tam {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: var(--drum-shell-dark);
+  transform: rotate(0deg);
+  overflow: hidden;
+}
+.hightam .tam:before, .midtam .tam:before {
+  top: -15px; left: -35px;
+  width: 150%; height: 122%;
+  background: #4a7a4a;
+  border-radius: 50%;
+}
+.hightam .tam .rim div:nth-of-type(1), .midtam .tam .rim div:nth-of-type(1) { top: 0; }
+.hightam .tam .rim div:nth-of-type(2), .midtam .tam .rim div:nth-of-type(2) { bottom: 0; }
+.hightam .tam .rug div:nth-of-type(1), .midtam .tam .rug div:nth-of-type(1) { top: 10px;    left: 8px; }
+.hightam .tam .rug div:nth-of-type(2), .midtam .tam .rug div:nth-of-type(2) { top: 10px;    right: 8px; }
+.hightam .tam .rug div:nth-of-type(3), .midtam .tam .rug div:nth-of-type(3) { bottom: 10px; left: 8px; }
+.hightam .tam .rug div:nth-of-type(4), .midtam .tam .rug div:nth-of-type(4) { bottom: 10px; right: 8px; }
+.hightam span, .midtam span {
+  display: block; position: absolute;
+  top: 18px; left: 26px;
+  width: 6px; height: 25px;
+  background: var(--drum-rim);
+}
+.hightam span:before, .midtam span:before { top: 0;    left: -5px; width: 8px; height: 5px;  background: var(--drum-rim); }
+.hightam span:after, .midtam span:after  { top: 33px; left: -1px; width: 7px; height: 13px; background: var(--drum-foot); }
+
+/* =====================================================
+   CYMBAL — forma base (triângulo)
+===================================================== */
+.cymbal {
+  position: absolute;
+  top: 0; left: 0;
+  width: 0; height: 0;
+  border-bottom: 7px solid var(--cymbal);
+  border-left: 40px solid transparent;
+  border-right: 40px solid transparent;
+  transform-origin: top center;
+}
+
+/* =====================================================
+   RIDE CYMBAL (condução) — mais à esquerda do surdo
+   GEOMETRIA CORRIGIDA:
+   - apex do prato: left 50px / top 14px (container)
+   - haste: 14 → 40 | cano: 40 → 176 (linha do chão: y=284 global)
+   - tripé: pernas a 55px / ±25° partindo de y=126 (container)
+===================================================== */
+.ride-cymbal {
+  position: absolute;
+  top: 108px; left: -55px;
+  width: 90px; height: 200px;
+  cursor: pointer;
+}
+.ride-cymbal .cymbal {
+  top: 14px;
+  left: 5px;
+  border-bottom: 9px solid var(--cymbal);
+  border-left: 45px solid transparent;
+  border-right: 45px solid transparent;
+  transform: rotate(20deg);
+  transform-origin: top center;
+}
+.ride-cymbal span:nth-of-type(1) {
+  display: block; position: absolute;
+  top: 14px; left: 50px;
+  width: 3px; height: 26px;
+  background: var(--drum-rim);
+}
+.ride-cymbal span:nth-of-type(1):after {
+  bottom: -5px; left: -1px;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--drum-foot);
+}
+.ride-cymbal span:nth-of-type(2) {
+  display: block; position: absolute;
+  top: 40px; left: 50px;
+  width: 3px; height: 136px;
+  background: var(--drum-rim);
+}
+.ride-cymbal span:nth-of-type(2):before {
+  top: 86px; left: 0; width: 3px; height: 55px;
+  background: var(--drum-rim);
+  transform-origin: top center; transform: rotate(25deg);
+}
+.ride-cymbal span:nth-of-type(2):after {
+  top: 86px; left: 0; width: 3px; height: 55px;
+  background: var(--drum-rim);
+  transform-origin: top center; transform: rotate(-25deg);
+}
+
+/* =====================================================
+   CRASH CYMBAL (ataque) — entre a caixa e o chimbal
+   - apex do prato: left 38px / top 14px (container em top:55px)
+   - cano: 40 → 229 (linha do chão: y=284 global)
+   - tripé: pernas a 55px / ±25° partindo de y=179 (container)
+===================================================== */
+.crash-cymbal {
+  position: absolute;
+  top: 55px; left: 177px;
+  width: 75px; height: 245px;
+  cursor: pointer;
+}
+.crash-cymbal .cymbal {
+  top: 14px;
+  left: 3px;
+  border-bottom: 7px solid var(--cymbal);
+  border-left: 35px solid transparent;
+  border-right: 35px solid transparent;
+  transform: rotate(25deg);
+  transform-origin: top center;
+}
+.crash-cymbal span:nth-of-type(1) {
+  display: block; position: absolute;
+  top: 14px; left: 38px;
+  width: 3px; height: 26px;
+  background: var(--drum-rim);
+}
+.crash-cymbal span:nth-of-type(1):after {
+  bottom: -5px; left: -1px;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--drum-foot);
+}
+.crash-cymbal span:nth-of-type(2) {
+  display: block; position: absolute;
+  top: 40px; left: 38px;
+  width: 3px; height: 189px;
+  background: var(--drum-rim);
+}
+.crash-cymbal span:nth-of-type(2):before {
+  top: 139px; left: 0; width: 3px; height: 55px;
+  background: var(--drum-rim);
+  transform-origin: top center; transform: rotate(25deg);
+}
+.crash-cymbal span:nth-of-type(2):after {
+  top: 139px; left: 0; width: 3px; height: 55px;
+  background: var(--drum-rim);
+  transform-origin: top center; transform: rotate(-25deg);
+}
+
+/* =====================================================
+   HI-HAT (chimbal)
+   GEOMETRIA CORRIGIDA:
+   - cano central alinhado ao apex (left 39px), 0 → 174
+   - tripé: pernas a 55px / ±25° partindo de y=124 (container)
+===================================================== */
+.hi-hat-cymbal {
+  position: absolute;
+  top: 110px; right: 0;
+  width: 80px; height: 190px;
+}
+.hi-hat-cymbal .cymbal.top  { top: 15px; }
+.hi-hat-cymbal .cymbal.bottom {
+  top: 28px;
+  border-bottom: none;
+  border-top: 5px solid var(--cymbal);
+}
+.hi-hat-cymbal span {
+  display: block;
+  top: 0px; left: 39px;
+  width: 3px; height: 174px;
+  background: var(--drum-rim);
+}
+.hi-hat-cymbal span:before {
+  top: 124px; left: 0; width: 3px; height: 55px;
+  background: var(--drum-rim);
+  transform-origin: top center; transform: rotate(25deg);
+}
+.hi-hat-cymbal span:after {
+  top: 124px; left: 0; width: 3px; height: 55px;
+  background: var(--drum-rim);
+  transform-origin: top center; transform: rotate(-25deg);
+}
+
+/* =====================================================
+   ANIMAÇÕES — só disparam via classe JS
+===================================================== */
+
+/* BASS — head pulsa ao clicar */
+@keyframes anim-bass {
+  0%   { transform: scale(1.0); }
+  20%  { transform: scale(1.06); }
+  40%  { transform: scale(0.97); }
+  60%  { transform: scale(1.03); }
+  80%  { transform: scale(0.99); }
+  100% { transform: scale(1.0); }
+}
+.bass.hit .head { animation: anim-bass 0.35s ease-out; }
+
+/* SNARE — tam chacoalha */
+@keyframes anim-snare {
+  0%   { transform: rotate(0deg); }
+  20%  { transform: rotate(6deg); }
+  50%  { transform: rotate(-5deg); }
+  75%  { transform: rotate(3deg); }
+  100% { transform: rotate(0deg); }
+}
+.snare.hit .tam { animation: anim-snare 0.25s ease-out; }
+
+/* HIGH/MID TOM — tam chacoalha */
+@keyframes anim-hightam {
+  0%   { transform: rotate(0deg); }
+  25%  { transform: rotate(8deg); }
+  60%  { transform: rotate(-6deg); }
+  100% { transform: rotate(0deg); }
+}
+.hightam.hit .tam, .midtam.hit .tam { animation: anim-hightam 0.25s ease-out; }
+
+/* FLOOR TOM — tam balança */
+@keyframes anim-floor {
+  0%   { transform: rotate(0deg); }
+  25%  { transform: rotate(4deg); }
+  60%  { transform: rotate(-3deg); }
+  100% { transform: rotate(0deg); }
+}
+.floor.hit .tam { animation: anim-floor 0.28s ease-out; }
+
+/* RIDE — prato balança */
+@keyframes anim-ride {
+  0%   { transform: rotate(20deg); }
+  20%  { transform: rotate(38deg); }
+  50%  { transform: rotate(10deg); }
+  75%  { transform: rotate(25deg); }
+  100% { transform: rotate(20deg); }
+}
+.ride-cymbal.hit .cymbal { animation: anim-ride 0.5s ease-out; }
+
+/* CRASH — prato balança */
+@keyframes anim-crash {
+  0%   { transform: rotate(25deg); }
+  20%  { transform: rotate(5deg); }
+  50%  { transform: rotate(40deg); }
+  75%  { transform: rotate(18deg); }
+  100% { transform: rotate(25deg); }
+}
+.crash-cymbal.hit .cymbal { animation: anim-crash 0.5s ease-out; }
+
+/* HI-HAT — prato de cima desce e sobe */
+@keyframes anim-hihat {
+  0%   { top: 15px; }
+  30%  { top: 27px; }
+  65%  { top: 12px; }
+  100% { top: 15px; }
+}
+.hi-hat-cymbal.hit .cymbal.top { animation: anim-hihat 0.3s ease-out; }
+
+/* Flash de brilho em TODOS os clicáveis */
+@keyframes anim-flash {
+  0%   { filter: brightness(1); }
+  20%  { filter: brightness(1.9) saturate(1.3); }
+  100% { filter: brightness(1); }
+}
+.bass.hit,
+.floor.hit,
+.snare.hit,
+.hightam.hit,
+.midtam.hit,
+.ride-cymbal.hit,
+.crash-cymbal.hit,
+.hi-hat-cymbal.hit {
+  animation: anim-flash 0.3s ease-out;
+}
+
+/* Hover sutil */
+.bass:hover,
+.floor:hover,
+.snare:hover,
+.hightam:hover,
+.midtam:hover { filter: brightness(1.12); }
+.hi-hat-cymbal:hover,
+.ride-cymbal:hover,
+.crash-cymbal:hover { filter: brightness(1.18); }
+
+/* =====================================================
+   RIPPLE
+===================================================== */
+.ripple {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.85);
+  pointer-events: none;
+  animation: rippleOut 0.6s ease-out forwards;
+  transform: translate(-50%,-50%);
+  z-index: 99;
+}
+@keyframes rippleOut {
+  from { width: 8px;   height: 8px;   opacity: 0.95; }
+  to   { width: 110px; height: 110px; opacity: 0; border-width: 0.5px; }
+}
+.ripple2 {
+  position: absolute;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255,255,255,0.45);
+  pointer-events: none;
+  animation: rippleOut 0.7s 0.1s ease-out forwards;
+  transform: translate(-50%,-50%);
+  z-index: 99;
+}
+
+/* =====================================================
+   INFO PANEL
+===================================================== */
+#panel {
+  position: fixed;
+  bottom: 60px; left: 50%;
+  transform: translateX(-50%) translateY(12px);
+  opacity: 0;
+  transition: opacity 0.28s, transform 0.28s;
+  pointer-events: none;
+  background: rgba(30,30,30,0.97);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-top: 3px solid #c9ced6;
+  border-radius: 10px;
+  padding: 14px 22px;
+  width: min(400px, 90vw);
+  z-index: 200;
+}
+#panel.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+#panel .pname {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.8rem;
+  color: #ffffff;
+  letter-spacing: 0.12em;
+  line-height: 1;
+}
+#panel .pen {
+  font-size: 0.65rem; color: #aaaaaa;
+  text-transform: uppercase; letter-spacing: 0.2em;
+  margin-bottom: 7px; font-family: monospace;
+}
+#panel .pdesc {
+  font-size: 0.85rem; color: #e0e0e0;
+  line-height: 1.55; font-family: monospace;
+}
+#panel .bars {
+  margin-top: 9px;
+  display: flex; align-items: flex-end; gap: 4px;
+}
+#panel .bar {
+  width: 3px; background: #c9ced6; border-radius: 2px;
+  animation: barB 0.4s ease-in-out infinite alternate;
+}
+#panel .bar:nth-child(1){ height:10px; }
+#panel .bar:nth-child(2){ height:6px;  animation-delay:.08s; }
+#panel .bar:nth-child(3){ height:16px; animation-delay:.16s; }
+#panel .bar:nth-child(4){ height:8px;  animation-delay:.04s; }
+#panel .bar:nth-child(5){ height:12px; animation-delay:.12s; }
+@keyframes barB { from{transform:scaleY(0.3)} to{transform:scaleY(1)} }
+#panel .plbl {
+  font-size: 0.56rem; color: #aaaaaa;
+  text-transform: uppercase; letter-spacing: 0.18em;
+  margin-left: 6px; align-self: center; font-family: monospace;
+}
+
+/* =====================================================
+   KEYBOARD HINTS
+===================================================== */
+#hints {
+  position: fixed; bottom: 12px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; gap: 6px; flex-wrap: wrap;
+  justify-content: center; z-index: 200;
+}
+.hint {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 4px; padding: 3px 9px;
+  font-size: 0.62rem; color: #c6cad1;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  font-family: monospace;
+}
+.hint b { color: #ffffff; }
+
+/* TITLE */
+#title {
+  position: fixed; top: 14px; left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(1.2rem,4vw,1.8rem);
+  color: #ffffff;
+  letter-spacing: 0.25em;
+  opacity: 0.9;
+  z-index: 200;
+}
+
+/* =====================================================
+   PRODUÇÃO: acessibilidade, responsivo, reduced motion
+===================================================== */
+[data-id]:focus-visible {
+  outline: 2px solid #e6e9ee;
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+/* Escala do kit: calculada dinamicamente pelo JS (fitKit) para preencher a tela */
+@media (prefers-reduced-motion: reduce) {
+  .bass.hit .head, .snare.hit .tam,
+  .hightam.hit .tam, .midtam.hit .tam, .floor.hit .tam,
+  .ride-cymbal.hit .cymbal, .crash-cymbal.hit .cymbal,
+  .hi-hat-cymbal.hit .cymbal.top,
+  .bass.hit, .floor.hit, .snare.hit, .hightam.hit, .midtam.hit,
+  .ride-cymbal.hit, .crash-cymbal.hit, .hi-hat-cymbal.hit,
+  .ripple, .ripple2, #panel .bar {
+    animation: none !important;
+  }
+}
+</style>
+</head>
+<body>
+
+<div id="title">Bateria Interativa</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<div class="wrapper">
+  <div class="drum">
+
+    <!-- FLOOR TOM (surdo) -->
+    <div class="floor"
+      data-id="surdo"
+      data-name="Surdo" data-en="Floor Tom" data-key="S"
+      data-desc="O maior tom, apoiado em 3 pernas. Som grave com bastante sustain. Essencial nos fills: Tom → Surdo → Bumbo!">
+      <div class="tam">
+        <div class="rim"><div></div><div></div></div>
+        <div class="rug">
+          <div class="top"></div><div class="top"></div>
+          <div class="bottom"></div><div class="bottom"></div>
+        </div>
+      </div>
+      <span></span><span></span>
+    </div>
+
+    <!-- SNARE (caixa) -->
+    <div class="snare"
+      data-id="caixa"
+      data-name="Caixa" data-en="Snare Drum" data-key="C"
+      data-desc="O tambor mais expressivo! As esteiras metálicas na parte inferior criam o timbre seco e vibrante. Toque nos tempos 2 e 4 para a levada básica.">
+      <div class="tam">
+        <div class="rim"><div></div><div></div></div>
+        <div class="rug">
+          <div class="top"></div><div class="top"></div>
+          <div class="bottom"></div><div class="bottom"></div>
+        </div>
+      </div>
+      <span></span><span></span><span></span>
+    </div>
+
+    <!-- HIGH TOM (tom1) -->
+    <div class="hightam"
+      data-id="tom1"
+      data-name="Tom-Tom 1" data-en="High Tom" data-key="T"
+      data-desc="O tom mais agudo, montado sobre o bumbo. Fundamental nos fills. Experimente a descida clássica: Tom → Surdo → Bumbo!">
+      <div class="tam">
+        <div class="rim"><div></div><div></div></div>
+        <div class="rug">
+          <div class="top"></div><div class="top"></div>
+          <div class="bottom"></div><div class="bottom"></div>
+        </div>
+      </div>
+      <span></span>
+    </div>
+
+    <!-- MID TOM (tom2) -->
+    <div class="midtam"
+      data-id="tom2"
+      data-name="Tom-Tom 2" data-en="Mid Tom" data-key="Y"
+      data-desc="O segundo tom, um pouco mais grave que o Tom 1. Complete a descida clássica: Tom 1 → Tom 2 → Surdo → Bumbo!">
+      <div class="tam">
+        <div class="rim"><div></div><div></div></div>
+        <div class="rug">
+          <div class="top"></div><div class="top"></div>
+          <div class="bottom"></div><div class="bottom"></div>
+        </div>
+      </div>
+      <span></span>
+    </div>
+
+    <!-- BASS DRUM (bumbo) -->
+    <div class="bass"
+      data-id="bumbo"
+      data-name="Bumbo" data-en="Bass Drum" data-key="B"
+      data-desc="O coração da bateria! Tocado com o pé direito pelo pedal. Responsável pelo pulso grave e o groove. É o maior tambor do kit!">
+      <div class="head"></div>
+      <span></span><span></span>
+    </div>
+
+    <!-- RIDE CYMBAL (condução) -->
+    <div class="ride-cymbal"
+      data-id="conducao"
+      data-name="Condução" data-en="Ride Cymbal" data-key="R"
+      data-desc="O maior prato do kit. Som seco e definido, ideal para manter a levada em tempos rápidos. Muito usado no jazz e na bossa nova.">
+      <span></span>
+      <span></span>
+      <div class="cymbal"></div>
+    </div>
+
+    <!-- CRASH CYMBAL (ataque) -->
+    <div class="crash-cymbal"
+      data-id="ataque"
+      data-name="Ataque" data-en="Crash Cymbal" data-key="A"
+      data-desc="Acentua momentos importantes — refrões e clímaxes. Som explosivo e longo. Toque sempre junto com o bumbo para impacto máximo!">
+      <span></span>
+      <span></span>
+      <div class="cymbal"></div>
+    </div>
+
+    <!-- HI-HAT CYMBAL (chimbal) -->
+    <div class="hi-hat-cymbal"
+      data-id="chimbal"
+      data-name="Chimbal" data-en="Hi-Hat" data-key="H"
+      data-desc="Dois pratos controlados pelo pé esquerdo. Fechado: tss (seco). Aberto: tsss (longo). Define o pulso rítmico — é o metrônomo do baterista!">
+      <span></span>
+      <div class="cymbal top"></div>
+      <div class="cymbal bottom"></div>
+    </div>
+
+  </div>
+</div>
+<!-- ═══════════════════════════════════════════ -->
+
+<!-- INFO PANEL -->
+<div id="panel">
+  <div class="pname" id="pname">—</div>
+  <div class="pen"   id="pen"></div>
+  <div class="pdesc" id="pdesc"></div>
+  <div class="bars">
+    <div class="bar"></div><div class="bar"></div>
+    <div class="bar"></div><div class="bar"></div>
+    <div class="bar"></div>
+    <span class="plbl">Reproduzindo</span>
+  </div>
+</div>
+
+<div id="hints">
+  <div class="hint"><b>H</b> Chimbal</div>
+  <div class="hint"><b>C</b> Caixa</div>
+  <div class="hint"><b>T</b> Tom 1</div>
+  <div class="hint"><b>Y</b> Tom 2</div>
+  <div class="hint"><b>S</b> Surdo</div>
+  <div class="hint"><b>B</b> Bumbo</div>
+  <div class="hint"><b>R</b> Condução</div>
+  <div class="hint"><b>A</b> Ataque</div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════
+   AUDIO ENGINE
+═══════════════════════════════════════ */
+let AC;
+const ac = () => {
+  if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+  if (AC.state === 'suspended') AC.resume();
+  return AC;
+};
+const mkN = s => {
+  const a=ac(), l=Math.ceil(a.sampleRate*s),
+        b=a.createBuffer(1,l,a.sampleRate), d=b.getChannelData(0);
+  for (let i=0;i<l;i++) d[i]=Math.random()*2-1;
+  const n=a.createBufferSource(); n.buffer=b; return n;
+};
+const mkO = (t,f) => { const o=ac().createOscillator(); o.type=t; o.frequency.value=f; return o; };
+const mkG = v     => { const g=ac().createGain(); g.gain.value=v; return g; };
+const pipe = (...n) => { for(let i=0;i<n.length-1;i++) n[i].connect(n[i+1]); };
+const D = () => ac().destination;
+
+const sounds = {
+  bumbo() {
+    const a=ac(), t=a.currentTime;
+    const o=mkO('sine',145), g=mkG(1.1);
+    o.frequency.setValueAtTime(145,t); o.frequency.exponentialRampToValueAtTime(40,t+.34);
+    g.gain.setValueAtTime(1.1,t); g.gain.exponentialRampToValueAtTime(.001,t+.48);
+    const sub=mkO('sine',50), sg=mkG(.4);
+    sg.gain.setValueAtTime(.4,t); sg.gain.exponentialRampToValueAtTime(.001,t+.42);
+    const n=mkN(.03), nh=a.createBiquadFilter(), ng=mkG(.6);
+    nh.type='bandpass'; nh.frequency.value=2500; nh.Q.value=.35;
+    ng.gain.setValueAtTime(.6,t); ng.gain.exponentialRampToValueAtTime(.001,t+.03);
+    pipe(o,g,D()); pipe(sub,sg,D()); pipe(n,nh,ng,D());
+    o.start(t); o.stop(t+.49); sub.start(t); sub.stop(t+.43); n.start(t); n.stop(t+.031);
+  },
+  caixa() {
+    const a=ac(), t=a.currentTime;
+    const o=mkO('triangle',190), og=mkG(.5);
+    o.frequency.setValueAtTime(190,t); o.frequency.exponentialRampToValueAtTime(88,t+.09);
+    og.gain.setValueAtTime(.5,t); og.gain.exponentialRampToValueAtTime(.001,t+.1);
+    const n=mkN(.24), hp=a.createBiquadFilter(), lp=a.createBiquadFilter(), ng=mkG(.9);
+    hp.type='highpass'; hp.frequency.value=1500; lp.type='lowpass'; lp.frequency.value=9800;
+    ng.gain.setValueAtTime(.9,t); ng.gain.exponentialRampToValueAtTime(.001,t+.25);
+    const n2=mkN(.015), bp2=a.createBiquadFilter(), ng2=mkG(.55);
+    bp2.type='bandpass'; bp2.frequency.value=4800; bp2.Q.value=.45;
+    ng2.gain.setValueAtTime(.55,t); ng2.gain.exponentialRampToValueAtTime(.001,t+.015);
+    pipe(o,og,D()); pipe(n,hp,lp,ng,D()); pipe(n2,bp2,ng2,D());
+    o.start(t); o.stop(t+.11); n.start(t); n.stop(t+.26); n2.start(t); n2.stop(t+.016);
+  },
+  tom1() {
+    const a=ac(), t=a.currentTime;
+    const o=mkO('sine',280), g=mkG(.98);
+    o.frequency.setValueAtTime(280,t); o.frequency.exponentialRampToValueAtTime(112,t+.22);
+    g.gain.setValueAtTime(.98,t); g.gain.exponentialRampToValueAtTime(.001,t+.32);
+    const n=mkN(.036), nb=a.createBiquadFilter(), ng=mkG(.43);
+    nb.type='bandpass'; nb.frequency.value=1800; nb.Q.value=.55;
+    ng.gain.setValueAtTime(.43,t); ng.gain.exponentialRampToValueAtTime(.001,t+.036);
+    pipe(o,g,D()); pipe(n,nb,ng,D());
+    o.start(t); o.stop(t+.33); n.start(t); n.stop(t+.037);
+  },
+  tom2() {
+    const a=ac(), t=a.currentTime;
+    const o=mkO('sine',235), g=mkG(1.0);
+    o.frequency.setValueAtTime(235,t); o.frequency.exponentialRampToValueAtTime(92,t+.27);
+    g.gain.setValueAtTime(1.0,t); g.gain.exponentialRampToValueAtTime(.001,t+.4);
+    const n=mkN(.038), nb=a.createBiquadFilter(), ng=mkG(.44);
+    nb.type='bandpass'; nb.frequency.value=1500; nb.Q.value=.55;
+    ng.gain.setValueAtTime(.44,t); ng.gain.exponentialRampToValueAtTime(.001,t+.038);
+    pipe(o,g,D()); pipe(n,nb,ng,D());
+    o.start(t); o.stop(t+.41); n.start(t); n.stop(t+.039);
+  },
+  surdo() {
+    const a=ac(), t=a.currentTime;
+    const o=mkO('sine',190), g=mkG(1.04);
+    o.frequency.setValueAtTime(190,t); o.frequency.exponentialRampToValueAtTime(68,t+.40);
+    g.gain.setValueAtTime(1.04,t); g.gain.exponentialRampToValueAtTime(.001,t+.55);
+    const sub=mkO('sine',50), sg=mkG(.42);
+    sg.gain.setValueAtTime(.42,t); sg.gain.exponentialRampToValueAtTime(.001,t+.48);
+    const n=mkN(.04), nb=a.createBiquadFilter(), ng=mkG(.45);
+    nb.type='bandpass'; nb.frequency.value=1050; nb.Q.value=.5;
+    ng.gain.setValueAtTime(.45,t); ng.gain.exponentialRampToValueAtTime(.001,t+.04);
+    pipe(o,g,D()); pipe(sub,sg,D()); pipe(n,nb,ng,D());
+    o.start(t); o.stop(t+.56); sub.start(t); sub.stop(t+.49); n.start(t); n.stop(t+.041);
+  },
+  chimbal() {
+    const a=ac(), t=a.currentTime;
+    const n=mkN(.14), hp=a.createBiquadFilter(), bp=a.createBiquadFilter(), g=mkG(.72);
+    hp.type='highpass'; hp.frequency.value=7200;
+    bp.type='bandpass'; bp.frequency.value=11800; bp.Q.value=.7;
+    g.gain.setValueAtTime(.72,t); g.gain.exponentialRampToValueAtTime(.001,t+.15);
+    pipe(n,hp,bp,g,D()); n.start(t); n.stop(t+.15);
+  },
+  conducao() {
+    const a=ac(), t=a.currentTime;
+    const n=mkN(.7), hp=a.createBiquadFilter(), bp=a.createBiquadFilter(), g=mkG(.6);
+    hp.type='highpass'; hp.frequency.value=4500;
+    bp.type='bandpass'; bp.frequency.value=8000; bp.Q.value=1.2;
+    g.gain.setValueAtTime(.6,t); g.gain.exponentialRampToValueAtTime(.001,t+.7);
+    const o=mkO('sine',2100), og=mkG(.22);
+    og.gain.setValueAtTime(.22,t); og.gain.exponentialRampToValueAtTime(.001,t+.45);
+    pipe(n,hp,bp,g,D()); pipe(o,og,D());
+    n.start(t); n.stop(t+.71); o.start(t); o.stop(t+.46);
+  },
+  ataque() {
+    const a=ac(), t=a.currentTime;
+    const n=mkN(1.7), hp=a.createBiquadFilter(), lp=a.createBiquadFilter(), g=mkG(.88);
+    hp.type='highpass'; hp.frequency.value=3200; lp.type='lowpass'; lp.frequency.value=16500;
+    g.gain.setValueAtTime(.88,t); g.gain.exponentialRampToValueAtTime(.001,t+1.7);
+    const n2=mkN(.024), hp2=a.createBiquadFilter(), g2=mkG(.74);
+    hp2.type='highpass'; hp2.frequency.value=5200;
+    g2.gain.setValueAtTime(.74,t); g2.gain.exponentialRampToValueAtTime(.001,t+.024);
+    pipe(n,hp,lp,g,D()); pipe(n2,hp2,g2,D());
+    n.start(t); n.stop(t+1.71); n2.start(t); n2.stop(t+.025);
+  }
+};
+
+/* ═══════════════════════════════════════
+   INTERACTION
+═══════════════════════════════════════ */
+const panel  = document.getElementById('panel');
+const pname  = document.getElementById('pname');
+const pen    = document.getElementById('pen');
+const pdesc  = document.getElementById('pdesc');
+const wrapper = document.querySelector('.wrapper');
+let panelTimer;
+
+const keyMap = { b:'bumbo', c:'caixa', t:'tom1', y:'tom2', s:'surdo', h:'chimbal', r:'conducao', a:'ataque' };
+
+const pieceMap = {};
+document.querySelectorAll('[data-id]').forEach(el => {
+  pieceMap[el.dataset.id] = el;
+});
+
+function spawnRipple(el) {
+  const wRect = wrapper.getBoundingClientRect();
+  const eRect = el.getBoundingClientRect();
+  const s = wRect.width / KIT_W; // compensa a escala dinâmica do kit
+  const cx = (eRect.left + eRect.width  / 2 - wRect.left) / s;
+  const cy = (eRect.top  + eRect.height / 2 - wRect.top)  / s;
+
+  ['ripple','ripple2'].forEach(cls => {
+    const r = document.createElement('div');
+    r.className = cls;
+    r.style.left = cx + 'px';
+    r.style.top  = cy + 'px';
+    wrapper.appendChild(r);
+    r.addEventListener('animationend', () => r.remove());
+  });
+}
+
+function trigger(id) {
+  const el = pieceMap[id];
+  if (!el) return;
+
+  // Audio
+  try { if (sounds[id]) sounds[id](); } catch(e) {}
+
+  // Panel
+  pname.textContent = el.dataset.name;
+  pen.textContent   = el.dataset.en;
+  pdesc.textContent = el.dataset.desc;
+  panel.classList.add('show');
+  clearTimeout(panelTimer);
+  panelTimer = setTimeout(() => panel.classList.remove('show'), 5000);
+
+  // Animação: remove → força reflow → adiciona de novo
+  el.classList.remove('hit');
+  void el.offsetWidth;
+  el.classList.add('hit');
+  el.addEventListener('animationend', () => el.classList.remove('hit'), { once: true });
+
+  // Ripple
+  spawnRipple(el);
+}
+
+document.querySelectorAll('[data-id]').forEach(el => {
+  // Acessibilidade: foco por teclado + semântica de botão
+  el.tabIndex = 0;
+  el.setAttribute('role', 'button');
+  el.setAttribute('aria-label', el.dataset.name + ' (' + el.dataset.en + ') — tecla ' + el.dataset.key);
+
+  el.addEventListener('click', () => trigger(el.dataset.id));
+  el.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); trigger(el.dataset.id); }
+  });
+});
+
+document.addEventListener('keydown', e => {
+  if (e.repeat) return;
+  if (e.target !== document.body && e.target.dataset && e.target.dataset.id) return;
+  const k = e.key.toLowerCase();
+  if (keyMap[k]) { e.preventDefault(); trigger(keyMap[k]); }
+});
+
+/* ═══════════════════════════════════════
+   ESCALA DINÂMICA — kit preenche a tela
+   O conteúdo visível ocupa y≈55..300 do wrapper (altura útil 245px,
+   centro em y=177 → 27px abaixo do centro do wrapper; compensado no translateY)
+═══════════════════════════════════════ */
+const KIT_W = 400, KIT_VISIBLE_H = 245;
+function fitKit() {
+  const s = Math.min(
+    (window.innerWidth  * 0.92) / KIT_W,
+    (window.innerHeight * 0.64) / KIT_VISIBLE_H
+  );
+  wrapper.style.transform = 'scale(' + s.toFixed(3) + ') translateY(-27px)';
+}
+window.addEventListener('resize', fitKit);
+fitKit();
+</script>
+</body>
+</html>

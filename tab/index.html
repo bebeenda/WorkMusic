@@ -1,0 +1,1263 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TabEditor — Editor de Tablatura</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=Bebas+Neue&family=IBM+Plex+Sans:wght@300;400;500&family=Oswald:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+<style>
+  /* ── Reset & Base ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:       #0e0e10;
+    --bg2:      #16161a;
+    --bg3:      #1e1e24;
+    --border:   #2a2a32;
+    --border2:  #3a3a46;
+    --text:     #e8e8f0;
+    --muted:    #6e6e82;
+    --accent:   #f0a500;
+    --accent2:  #e05a00;
+    --note:     #7eb8f7;
+    --note2:    #a8d4ff;
+    --dash:     #2e2e3a;
+    --bar-line: #444458;
+    --string:   #3a3a4a;
+    --cell-w:   26px;
+    --cell-h:   32px;
+    --label-w:  34px;
+    --font-mono: 'IBM Plex Mono', monospace;
+    --font-sans: 'IBM Plex Sans', sans-serif;
+    --font-display: 'Bebas Neue', sans-serif;
+
+    /* Afinador vintage */
+    --vin-bg:     #1a1208;
+    --vin-face:   #f5edd0;
+    --vin-brown:  #3d2b0a;
+    --vin-amber:  #c8860a;
+    --vin-green:  #2e7d32;
+    --vin-needle: #d44000;
+    --vin-chrome: #8a8a9a;
+    --vin-screw:  #5a5a6a;
+  }
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    overflow-x: hidden;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 24px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    font-family: var(--font-display);
+    font-size: 28px;
+    letter-spacing: 2px;
+    color: var(--accent);
+    line-height: 1;
+  }
+  .logo span { color: var(--muted); }
+  .header-sep { width: 1px; height: 24px; background: var(--border2); }
+  .song-input {
+    background: transparent; border: none; outline: none;
+    font-family: var(--font-sans); font-size: 14px; font-weight: 300;
+    color: var(--muted); width: 220px; transition: color 0.2s; cursor: text;
+  }
+  .song-input::placeholder { color: var(--border2); }
+  .song-input:focus { color: var(--text); }
+  .toolbar {
+    display: flex; align-items: center; gap: 6px;
+    margin-left: auto; flex-wrap: wrap;
+  }
+  .btn {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: 0.5px; padding: 5px 12px; border-radius: 4px;
+    border: 1px solid var(--border2); background: var(--bg3);
+    color: var(--muted); cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(240,165,0,0.05); }
+  .btn:active { transform: scale(0.97); }
+  .btn.primary { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
+  .btn.primary:hover { background: #ffc026; border-color: #ffc026; color: #000; }
+  .btn.link-btn { border-color: #4a9a6a; color: #4a9a6a; }
+  .btn.link-btn:hover { border-color: #6abf8a; color: #6abf8a; background: rgba(74,154,106,0.06); }
+  .btn.tuner-vis { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Main ── */
+  main { padding: 24px; display: flex; flex-direction: column; gap: 24px; }
+
+  /* ── Tuner Panel ── */
+  .tuner-panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+  }
+
+  /* Vintage tuner body */
+  .tuner-device {
+    width: 100%;
+    background: linear-gradient(180deg, #2a1f0a 0%, #1a1208 40%, #0f0c06 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 20px 24px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+  }
+
+  /* Screws nos cantos */
+  .tuner-device::before,
+  .tuner-device::after {
+    content: '';
+    position: absolute;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #9a9aaa, #4a4a5a 60%, #2a2a3a);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.1);
+    top: 14px;
+  }
+  .tuner-device::before { left: 14px; }
+  .tuner-device::after  { right: 14px; }
+
+  .tuner-brand {
+    font-family: 'Oswald', sans-serif;
+    font-size: 11px;
+    font-weight: 300;
+    letter-spacing: 6px;
+    color: #6a5a30;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  /* VU Meter face */
+  .vu-face {
+    width: 340px;
+    height: 180px;
+    background: radial-gradient(ellipse at 50% 120%, #f5edd0 60%, #e8d8a8 85%, #c8b870 100%);
+    border-radius: 170px 170px 20px 20px;
+    position: relative;
+    box-shadow:
+      0 0 0 4px #5a4010,
+      0 0 0 6px #3a2808,
+      0 4px 20px rgba(0,0,0,0.8),
+      inset 0 -4px 12px rgba(0,0,0,0.15),
+      inset 0 2px 6px rgba(255,255,255,0.3);
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  /* Linhas do fundo do mostrador */
+  .vu-face::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 7px,
+      rgba(180,150,60,0.08) 7px,
+      rgba(180,150,60,0.08) 8px
+    );
+    border-radius: inherit;
+  }
+
+  /* Canvas do arco SVG */
+  .vu-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Nota display */
+  .tuner-note {
+    position: absolute;
+    top: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Oswald', sans-serif;
+    font-size: 52px;
+    font-weight: 700;
+    color: #1a1208;
+    line-height: 1;
+    letter-spacing: -2px;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.4);
+    pointer-events: none;
+    z-index: 10;
+    transition: color 0.2s;
+  }
+  .tuner-cents {
+    position: absolute;
+    top: 78px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: #6a5a30;
+    pointer-events: none;
+    z-index: 10;
+    letter-spacing: 1px;
+  }
+
+  /* Indicador verde central */
+  .tune-indicator {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 5;
+  }
+  .tune-dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: #888;
+    box-shadow: 0 0 6px rgba(0,0,0,0.3);
+    transition: background 0.2s, box-shadow 0.2s;
+    margin: 0 auto 2px;
+  }
+  .tune-dot.in-tune {
+    background: #2e7d32;
+    box-shadow: 0 0 10px rgba(46,125,50,0.8), 0 0 20px rgba(46,125,50,0.4);
+  }
+
+  /* Ponteiro */
+  .needle-wrap {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: 2px;
+    height: 155px;
+    transform-origin: bottom center;
+    transform: translateX(-50%) rotate(0deg);
+    transition: transform 0.15s cubic-bezier(0.23, 1, 0.32, 1);
+    z-index: 8;
+  }
+  .needle {
+    width: 2px;
+    height: 100%;
+    background: linear-gradient(180deg, #d44000 0%, #c03800 60%, #8a2000 100%);
+    border-radius: 1px 1px 0 0;
+    position: relative;
+    box-shadow: 0 0 4px rgba(212,64,0,0.4);
+  }
+  .needle::after {
+    content: '';
+    position: absolute;
+    bottom: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #c03800, #601800);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.6);
+  }
+
+  /* Escala de notas abaixo */
+  .tuner-scale {
+    display: flex;
+    gap: 0;
+    align-items: center;
+    justify-content: center;
+    margin-top: 14px;
+    font-family: 'Oswald', sans-serif;
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0;
+  }
+  .scale-note {
+    width: 26px;
+    text-align: center;
+    color: #6a5a30;
+    cursor: pointer;
+    padding: 3px 0;
+    border-radius: 3px;
+    transition: all 0.15s;
+    position: relative;
+  }
+  .scale-note:hover { color: var(--accent); }
+  .scale-note.active {
+    color: #1a1208;
+    background: rgba(200,134,10,0.3);
+    font-weight: 600;
+  }
+  .scale-note.sharp { font-size: 10px; color: #5a4a20; }
+
+  /* Controles do afinador */
+  .tuner-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .tuner-btn {
+    font-family: 'Oswald', sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    padding: 6px 16px;
+    border-radius: 3px;
+    border: 1px solid #3a2808;
+    background: linear-gradient(180deg, #2e2008 0%, #1a1208 100%);
+    color: #8a6a30;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: uppercase;
+  }
+  .tuner-btn:hover { border-color: var(--amber, #c8860a); color: #c8860a; }
+  .tuner-btn.active {
+    background: linear-gradient(180deg, #3a2808 0%, #2a1808 100%);
+    border-color: #c8860a;
+    color: #f0c050;
+    box-shadow: 0 0 8px rgba(200,134,10,0.3);
+  }
+  /* LED de status */
+  .tuner-led {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: #2a1a08;
+    border: 1px solid #3a2808;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
+    transition: all 0.1s;
+  }
+  .tuner-led.on-green {
+    background: radial-gradient(circle at 35% 35%, #60dd60, #2e7d32);
+    box-shadow: 0 0 6px rgba(46,175,50,0.9), inset 0 1px 2px rgba(255,255,255,0.2);
+  }
+  .tuner-led.on-red {
+    background: radial-gradient(circle at 35% 35%, #ff6060, #cc2020);
+    box-shadow: 0 0 6px rgba(200,40,40,0.9), inset 0 1px 2px rgba(255,255,255,0.2);
+  }
+  .tuner-led.on-amber {
+    background: radial-gradient(circle at 35% 35%, #ffc040, #c8860a);
+    box-shadow: 0 0 6px rgba(200,134,10,0.9), inset 0 1px 2px rgba(255,255,255,0.2);
+  }
+
+  .tuner-status-text {
+    font-family: 'Oswald', sans-serif;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: #5a4a20;
+    text-transform: uppercase;
+    min-width: 80px;
+    text-align: center;
+  }
+
+  /* ── Section block ── */
+  .section-block {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+  }
+  .section-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px; border-bottom: 1px solid var(--border);
+    background: var(--bg3);
+  }
+  .section-name {
+    font-family: var(--font-display); font-size: 14px;
+    letter-spacing: 1px; color: var(--accent);
+    background: transparent; border: none; outline: none;
+    cursor: text; width: 120px;
+  }
+  .section-name::placeholder { color: var(--border2); }
+  .section-num {
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--muted); background: var(--border);
+    padding: 2px 6px; border-radius: 3px;
+  }
+  .section-actions { margin-left: auto; display: flex; gap: 4px; }
+  .sec-btn {
+    font-family: var(--font-mono); font-size: 10px;
+    padding: 3px 8px; border-radius: 3px;
+    border: 1px solid var(--border2); background: transparent;
+    color: var(--muted); cursor: pointer; transition: all 0.12s;
+  }
+  .sec-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .sec-btn.del:hover { border-color: #e05; color: #e05; }
+
+  /* ── Tab canvas ── */
+  .tab-canvas { padding: 12px 12px 16px; }
+  .tab-line { display: flex; flex-direction: column; margin-bottom: 16px; }
+  .tab-line:last-child { margin-bottom: 0; }
+  .string-row { display: flex; align-items: center; height: var(--cell-h); position: relative; }
+  .string-label {
+    width: var(--label-w); min-width: var(--label-w);
+    font-family: var(--font-mono); font-size: 12px; font-weight: 500;
+    color: var(--muted); text-align: center; user-select: none;
+    position: relative; z-index: 2;
+  }
+  .cells-wrap {
+    display: flex; align-items: center; flex: 1;
+    position: relative; height: 100%;
+  }
+  .cells-wrap::before {
+    content: ''; position: absolute; left: 0; right: 0;
+    top: 50%; height: 1px; background: var(--string); pointer-events: none;
+  }
+  .cell {
+    width: var(--cell-w); min-width: var(--cell-w);
+    height: var(--cell-h); position: relative;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .cell input {
+    width: 100%; height: 100%;
+    background: transparent; border: none; outline: none;
+    font-family: var(--font-mono); font-size: 12px; font-weight: 500;
+    text-align: center; color: var(--dash); cursor: text;
+    position: relative; z-index: 2; padding: 0;
+    caret-color: var(--accent); transition: color 0.1s, background 0.1s;
+  }
+  .cell input.has-note { color: var(--note); text-shadow: 0 0 8px rgba(126,184,247,0.3); }
+  .cell input:focus { background: rgba(240,165,0,0.08); border-radius: 3px; color: var(--note2); }
+  .bar-div { width: 2px; min-width: 2px; height: var(--cell-h); background: var(--bar-line); position: relative; z-index: 2; }
+
+  /* ── Footer ── */
+  footer {
+    padding: 16px 24px; border-top: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+    color: var(--muted); font-size: 11px; font-family: var(--font-mono); letter-spacing: 0.5px;
+  }
+  .shortcut-list { display: flex; gap: 16px; }
+  .shortcut-list span { display: flex; align-items: center; gap: 5px; }
+  kbd {
+    background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: 3px; padding: 1px 5px;
+    font-family: var(--font-mono); font-size: 10px; color: var(--text);
+  }
+
+  .add-section-row { display: flex; justify-content: center; }
+
+  .toast {
+    position: fixed; bottom: 30px; left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--accent); color: #000;
+    font-family: var(--font-mono); font-size: 12px; font-weight: 600;
+    padding: 8px 20px; border-radius: 20px;
+    opacity: 0; transition: opacity 0.2s, transform 0.2s;
+    pointer-events: none; z-index: 999; letter-spacing: 1px;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 600px) {
+    :root { --cell-w: 22px; --cell-h: 30px; }
+    header { flex-wrap: wrap; gap: 8px; padding: 10px 14px; }
+    .logo { font-size: 22px; }
+    .song-input { width: 140px; }
+    main { padding: 14px; gap: 16px; }
+    .shortcut-list { display: none; }
+    .vu-face { width: 280px; height: 148px; }
+    .tuner-note { font-size: 40px; top: 14px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Tab<span>Ed</span></div>
+  <div class="header-sep"></div>
+  <input class="song-input" id="songTitle" type="text" placeholder="Nome da música / artista…" />
+  <div class="toolbar">
+    <button class="btn" id="tunerVisBtn" onclick="toggleTunerPanel()">🎛 Afinador</button>
+    <button class="btn" onclick="addSection()">+ Seção</button>
+    <button class="btn" onclick="addBarToLast()">+ Compasso</button>
+    <button class="btn link-btn" onclick="generateLink()">🔗 Gerar Link</button>
+    <button class="btn" onclick="exportTxt()">Exportar .txt</button>
+    <button class="btn primary" onclick="copyAll()">Copiar Tab</button>
+  </div>
+</header>
+
+<main id="main">
+  <!-- Tuner panel renderizado via JS -->
+</main>
+
+<footer>
+  <div class="shortcut-list">
+    <span><kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> navegar</span>
+    <span><kbd>Tab</kbd> próxima célula</span>
+    <span><kbd>Del</kbd> apagar nota</span>
+    <span><kbd>|</kbd> nova barra</span>
+  </div>
+  <span>TabEditor · edite livremente</span>
+</footer>
+
+<div class="toast" id="toast">COPIADO!</div>
+
+<script>
+/* ═══════════════════════════════════════════════
+   DATA MODEL
+   ═══════════════════════════════════════════════ */
+const STRING_NAMES = ['e','B','G','D','A','E'];
+
+const INITIAL_CELLS = [
+  ['-','-','-','-','-','-','-','-','-','-','-','-','-','-','15','','-','14','','','-','-','-','-','-','-','-','-'],
+  ['-','-','-','-','15','','','-','-','-','-','-','-','-','-','-','-','-','-','-','15','','','-','-','-','-','-'],
+  ['-','-','-','-','-','-','-','14','','-','12','','-','-','-','14','','-','-','14','','-','-','-','-','14','','-'],
+  ['-','12','','','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','12','','','-','-','-','-'],
+  ['-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-'],
+  ['-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-'],
+];
+const INITIAL_BAR_SPLIT = 13;
+
+function makeBar(cols) {
+  return Array.from({length: 6}, () => Array(cols).fill('-'));
+}
+
+function makeSectionFromInitial() {
+  const bar1 = Array.from({length: 6}, (_, si) => INITIAL_CELLS[si].slice(0, INITIAL_BAR_SPLIT));
+  const bar2 = Array.from({length: 6}, (_, si) => INITIAL_CELLS[si].slice(INITIAL_BAR_SPLIT));
+  return { id: uid(), name: 'Intro', bars: [bar1, bar2] };
+}
+
+function makeSection(name, barCount, barCols) {
+  return { id: uid(), name: name || 'Seção', bars: Array.from({length: barCount || 2}, () => makeBar(barCols || 14)) };
+}
+
+let sections = [];
+let sectionCount = 1;
+function uid() { return Math.random().toString(36).slice(2, 9); }
+
+/* ═══════════════════════════════════════════════
+   SERIALIZAÇÃO / URL
+   ═══════════════════════════════════════════════ */
+
+function serializeTab() {
+  const title = document.getElementById('songTitle').value;
+  const data = {
+    t: title,
+    s: sections.map(sec => ({
+      n: sec.name,
+      b: sec.bars.map(bar =>
+        bar.map(string => string.join(',').replace(/-/g, '.'))
+      )
+    }))
+  };
+  return JSON.stringify(data);
+}
+
+function deserializeTab(json) {
+  const data = JSON.parse(json);
+  document.getElementById('songTitle').value = data.t || '';
+  sections = data.s.map(sec => ({
+    id: uid(),
+    name: sec.n,
+    bars: sec.b.map(bar =>
+      bar.map(string => string.split(',').map(c => c === '.' ? '-' : c))
+    )
+  }));
+}
+
+function tabToHash() {
+  const json = serializeTab();
+  const compressed = pako.deflate(json, { level: 9 });
+  const b64 = btoa(String.fromCharCode(...compressed))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  return b64;
+}
+
+function hashToTab(hash) {
+  const b64 = hash.replace(/-/g, '+').replace(/_/g, '/');
+  const binary = atob(b64);
+  const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
+  const json = pako.inflate(bytes, { to: 'string' });
+  deserializeTab(json);
+}
+
+function generateLink() {
+  const hash = tabToHash();
+  const url = `${location.origin}${location.pathname}#${hash}`;
+  navigator.clipboard.writeText(url).then(() => showToast('🔗 LINK COPIADO!'));
+}
+
+function loadFromHash() {
+  const hash = location.hash.slice(1);
+  if (hash.length > 10) {
+    try {
+      hashToTab(hash);
+      return true;
+    } catch(e) {
+      console.warn('Hash inválido:', e);
+    }
+  }
+  return false;
+}
+
+/* ═══════════════════════════════════════════════
+   AFINADOR
+   ═══════════════════════════════════════════════ */
+
+const NOTE_NAMES  = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const GUITAR_TUNING = ['E2','A2','D3','G3','B3','E4']; // padrão
+
+let tunerActive   = false;
+let audioCtx      = null;
+let analyser      = null;
+let tunerStream   = null;
+let tunerAnimId   = null;
+let currentNote   = '--';
+let currentCents  = 0;
+let currentFreq   = 0;
+
+function buildTunerPanel() {
+  const panel = document.createElement('div');
+  panel.className = 'tuner-panel';
+  panel.id = 'tunerPanel';
+
+  panel.innerHTML = `
+    <div class="tuner-device">
+      <div class="tuner-brand">· TABEDITOR CHROMATIC TUNER ·</div>
+
+      <!-- VU Face -->
+      <div class="vu-face" id="vuFace">
+        <svg class="vu-svg" id="vuSvg" viewBox="0 0 340 180" xmlns="http://www.w3.org/2000/svg">
+          <!-- Arco de fundo -->
+          <defs>
+            <radialGradient id="faceGrad" cx="50%" cy="100%" r="100%">
+              <stop offset="0%" stop-color="#f5edd0"/>
+              <stop offset="100%" stop-color="#e0c880"/>
+            </radialGradient>
+          </defs>
+
+          <!-- Marcações do arco -->
+          <!-- Zona vermelha esquerda -->
+          <path d="M 40 170 A 140 140 0 0 1 100 50" stroke="#cc3030" stroke-width="5" fill="none" opacity="0.25"/>
+          <!-- Zona verde central -->
+          <path d="M 100 50 A 140 140 0 0 1 240 50" stroke="#2e7d32" stroke-width="5" fill="none" opacity="0.25"/>
+          <!-- Zona vermelha direita -->
+          <path d="M 240 50 A 140 140 0 0 1 300 170" stroke="#cc3030" stroke-width="5" fill="none" opacity="0.25"/>
+
+          <!-- Ticks grandes -->
+          <g id="ticks"></g>
+
+          <!-- Labels -50 0 +50 -->
+          <text x="38" y="168" font-family="IBM Plex Mono" font-size="9" fill="#8a7050" text-anchor="middle">-50</text>
+          <text x="170" y="38" font-family="IBM Plex Mono" font-size="9" fill="#5a7a40" text-anchor="middle">0</text>
+          <text x="302" y="168" font-family="IBM Plex Mono" font-size="9" fill="#8a7050" text-anchor="middle">+50</text>
+        </svg>
+
+        <!-- Nota -->
+        <div class="tuner-note" id="tunerNote">--</div>
+        <div class="tuner-cents" id="tunerCents">· · ·</div>
+
+        <!-- Ponteiro -->
+        <div class="needle-wrap" id="needleWrap">
+          <div class="needle"></div>
+        </div>
+
+        <!-- Ponto central -->
+        <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);z-index:10;">
+          <div class="tune-dot" id="tuneDot"></div>
+        </div>
+      </div>
+
+      <!-- Escala de notas -->
+      <div class="tuner-scale" id="tunerScale"></div>
+
+      <!-- Controles -->
+      <div class="tuner-controls">
+        <div class="tuner-led" id="tunerLed"></div>
+        <div class="tuner-status-text" id="tunerStatus">inativo</div>
+        <button class="tuner-btn" id="tunerToggleBtn" onclick="toggleTuner()">LIGAR</button>
+      </div>
+    </div>
+  `;
+
+  // Gera ticks no SVG
+  setTimeout(() => {
+    const svg = panel.querySelector('#ticks');
+    if (!svg) return;
+    for (let i = -50; i <= 50; i += 5) {
+      const angle = (i / 50) * 70; // ±70 graus do centro
+      const rad = (angle - 90) * Math.PI / 180;
+      const cx = 170, cy = 170, r1 = 125, r2 = i % 10 === 0 ? 110 : 117;
+      const x1 = cx + r1 * Math.cos(rad), y1 = cy + r1 * Math.sin(rad);
+      const x2 = cx + r2 * Math.cos(rad), y2 = cy + r2 * Math.sin(rad);
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+      line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+      line.setAttribute('stroke', i === 0 ? '#2e7d32' : '#9a8050');
+      line.setAttribute('stroke-width', i % 10 === 0 ? '2' : '1');
+      svg.appendChild(line);
+    }
+  }, 50);
+
+  // Gera escala de notas
+  const scaleEl = panel.querySelector('#tunerScale');
+  const SCALE_NOTES = ['A','A#','B','C','C#','D','D#','E','F','F#','G','G#'];
+  SCALE_NOTES.forEach(n => {
+    const sp = document.createElement('div');
+    sp.className = 'scale-note' + (n.includes('#') ? ' sharp' : '');
+    sp.textContent = n;
+    sp.dataset.note = n;
+    sp.id = `scaleNote_${n.replace('#','s')}`;
+    scaleEl.appendChild(sp);
+  });
+
+  return panel;
+}
+
+/* ── Pitch detection: YIN algorithm (preciso para guitarra) ── */
+function detectPitch(buf, sampleRate) {
+  const SIZE = buf.length;
+
+  // RMS — rejeita silêncio
+  let rms = 0;
+  for (let i = 0; i < SIZE; i++) rms += buf[i] * buf[i];
+  rms = Math.sqrt(rms / SIZE);
+  if (rms < 0.015) return -1;
+
+  // Faixa útil para guitarra: 70 Hz (B1) a 1400 Hz (F6)
+  const tauMin = Math.floor(sampleRate / 1400);
+  const tauMax = Math.floor(sampleRate / 70);
+  const half   = Math.floor(SIZE / 2);
+  const limit  = Math.min(tauMax, half - 1);
+
+  // Passo 1: função de diferença
+  const d = new Float32Array(limit + 1);
+  for (let tau = 1; tau <= limit; tau++) {
+    let s = 0;
+    for (let j = 0; j < half; j++) {
+      const diff = buf[j] - buf[j + tau];
+      s += diff * diff;
+    }
+    d[tau] = s;
+  }
+
+  // Passo 2: diferença normalizada cumulativa
+  const dn = new Float32Array(limit + 1);
+  dn[0] = 1;
+  let runSum = 0;
+  for (let tau = 1; tau <= limit; tau++) {
+    runSum += d[tau];
+    dn[tau] = runSum === 0 ? 0 : d[tau] * tau / runSum;
+  }
+
+  // Passo 3: achar o primeiro tau abaixo do threshold
+  const threshold = 0.15;
+  let tau = tauMin;
+  while (tau <= limit) {
+    if (dn[tau] < threshold) {
+      while (tau + 1 <= limit && dn[tau + 1] < dn[tau]) tau++;
+      break;
+    }
+    tau++;
+  }
+  if (tau > limit || dn[tau] >= 0.5) return -1;
+
+  // Passo 4: interpolação parabólica para sub-sample accuracy
+  let betterTau = tau;
+  if (tau > 0 && tau < limit) {
+    const s0 = dn[tau - 1], s1 = dn[tau], s2 = dn[tau + 1];
+    const denom = 2 * (2 * s1 - s0 - s2);
+    if (denom !== 0) betterTau = tau + (s0 - s2) / denom;
+  }
+
+  return sampleRate / betterTau;
+}
+
+function freqToNote(freq) {
+  const noteNum = 12 * (Math.log2(freq / 440)) + 69;
+  const rounded = Math.round(noteNum);
+  const cents = Math.round((noteNum - rounded) * 100);
+  const name = NOTE_NAMES[((rounded % 12) + 12) % 12];
+  const octave = Math.floor(rounded / 12) - 1;
+  return { name, octave, cents, noteNum };
+}
+
+async function startTuner() {
+  try {
+    tunerStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 4096; // mais resolução temporal
+    analyser.smoothingTimeConstant = 0;
+    const src = audioCtx.createMediaStreamSource(tunerStream);
+    src.connect(analyser);
+    tunerActive = true;
+    smoothedFreq = -1;
+    updateTunerUI();
+    tunerLoop();
+  } catch(e) {
+    showToast('Microfone bloqueado');
+  }
+}
+
+function stopTuner() {
+  tunerActive = false;
+  if (tunerAnimId) cancelAnimationFrame(tunerAnimId);
+  if (tunerStream) tunerStream.getTracks().forEach(t => t.stop());
+  if (audioCtx) audioCtx.close();
+  audioCtx = analyser = tunerStream = null;
+  setNeedle(0);
+  document.getElementById('tunerNote').textContent = '--';
+  document.getElementById('tunerCents').textContent = '· · ·';
+  document.getElementById('tuneDot').classList.remove('in-tune');
+  document.getElementById('tunerLed').className = 'tuner-led';
+  document.getElementById('tunerStatus').textContent = 'inativo';
+  clearScaleHighlight();
+}
+
+function toggleTuner() {
+  const btn = document.getElementById('tunerToggleBtn');
+  if (tunerActive) {
+    stopTuner();
+    btn.textContent = 'LIGAR';
+    btn.classList.remove('active');
+  } else {
+    startTuner();
+    btn.textContent = 'DESLIGAR';
+    btn.classList.add('active');
+  }
+}
+
+let smoothedFreq = -1;
+const SMOOTH = 0.85; // coeficiente de suavização (0=sem suavização, 0.95=muito suave)
+
+function tunerLoop() {
+  if (!tunerActive) return;
+  const buf = new Float32Array(analyser.fftSize);
+  analyser.getFloatTimeDomainData(buf);
+  const freq = detectPitch(buf, audioCtx.sampleRate);
+
+  if (freq > 0) {
+    // Suavização exponencial — evita notas pulando aleatoriamente
+    if (smoothedFreq < 0) smoothedFreq = freq;
+    else smoothedFreq = SMOOTH * smoothedFreq + (1 - SMOOTH) * freq;
+
+    const { name, octave, cents } = freqToNote(smoothedFreq);
+    currentNote = name;
+    currentCents = cents;
+    currentFreq = smoothedFreq;
+    updateTunerDisplay(name, octave, cents, smoothedFreq);
+  } else {
+    // sem sinal detectado
+    smoothedFreq = -1;
+    document.getElementById('tunerCents').textContent = '· · ·';
+    setNeedle(0);
+  }
+  tunerAnimId = requestAnimationFrame(tunerLoop);
+}
+
+let needleAngle = 0;
+let targetAngle = 0;
+
+function setNeedle(cents) {
+  // cents: -50..+50 → ângulo -70..+70
+  targetAngle = (cents / 50) * 70;
+  needleAngle += (targetAngle - needleAngle) * 0.3;
+  const wrap = document.getElementById('needleWrap');
+  if (wrap) wrap.style.transform = `translateX(-50%) rotate(${needleAngle}deg)`;
+}
+
+function updateTunerDisplay(name, octave, cents, freq) {
+  document.getElementById('tunerNote').textContent = name;
+  document.getElementById('tunerCents').textContent =
+    `${freq.toFixed(1)} Hz  ${cents >= 0 ? '+' : ''}${cents}¢`;
+
+  setNeedle(cents);
+
+  const absCents = Math.abs(cents);
+  const dot = document.getElementById('tuneDot');
+  const led = document.getElementById('tunerLed');
+  const status = document.getElementById('tunerStatus');
+
+  if (absCents <= 5) {
+    dot.classList.add('in-tune');
+    led.className = 'tuner-led on-green';
+    status.textContent = 'AFINADO ✓';
+    status.style.color = '#4a9a4a';
+  } else if (absCents <= 15) {
+    dot.classList.remove('in-tune');
+    led.className = 'tuner-led on-amber';
+    status.textContent = cents < 0 ? '↑ SUBIR' : '↓ BAIXAR';
+    status.style.color = '#c8860a';
+  } else {
+    dot.classList.remove('in-tune');
+    led.className = 'tuner-led on-red';
+    status.textContent = cents < 0 ? '↑↑ SUBIR' : '↓↓ BAIXAR';
+    status.style.color = '#cc3030';
+  }
+
+  // Highlight na escala
+  clearScaleHighlight();
+  const key = name.replace('#','s');
+  const el = document.getElementById(`scaleNote_${key}`);
+  if (el) el.classList.add('active');
+}
+
+function updateTunerUI() {
+  // apenas atualiza estado visual quando liga
+  document.getElementById('tunerLed').className = 'tuner-led on-amber';
+  document.getElementById('tunerStatus').textContent = 'ouvindo…';
+  document.getElementById('tunerStatus').style.color = '#c8860a';
+}
+
+function clearScaleHighlight() {
+  document.querySelectorAll('.scale-note').forEach(el => el.classList.remove('active'));
+}
+
+let tunerPanelVisible = false;
+function toggleTunerPanel() {
+  tunerPanelVisible = !tunerPanelVisible;
+  const panel = document.getElementById('tunerPanel');
+  const btn   = document.getElementById('tunerVisBtn');
+  if (panel) {
+    const device = panel.querySelector('.tuner-device');
+    if (device) device.style.display = tunerPanelVisible ? '' : 'none';
+  }
+  if (btn) {
+    btn.classList.toggle('tuner-vis', tunerPanelVisible);
+    btn.style.borderColor = '';
+    btn.style.color = '';
+  }
+  // Para o microfone se esconder o painel
+  if (!tunerPanelVisible && tunerActive) {
+    stopTuner();
+    const tb = document.getElementById('tunerToggleBtn');
+    if (tb) { tb.textContent = 'LIGAR'; tb.classList.remove('active'); }
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   RENDER
+   ═══════════════════════════════════════════════ */
+
+function render() {
+  const main = document.getElementById('main');
+  main.innerHTML = '';
+
+  // Afinador sempre no topo, mas oculto por padrão
+  const tunerEl = buildTunerPanel();
+  const tunerDevice = tunerEl.querySelector('.tuner-device');
+  if (tunerDevice) tunerDevice.style.display = 'none';
+  main.appendChild(tunerEl);
+
+  sections.forEach((sec, si) => {
+    main.appendChild(renderSection(sec, si));
+  });
+
+  const addRow = document.createElement('div');
+  addRow.className = 'add-section-row';
+  const addBtn = document.createElement('button');
+  addBtn.className = 'btn';
+  addBtn.textContent = '+ Nova Seção';
+  addBtn.onclick = addSection;
+  addRow.appendChild(addBtn);
+  main.appendChild(addRow);
+}
+
+function renderSection(sec, si) {
+  const block = document.createElement('div');
+  block.className = 'section-block';
+  block.dataset.sid = sec.id;
+
+  const hdr = document.createElement('div');
+  hdr.className = 'section-header';
+
+  const num = document.createElement('span');
+  num.className = 'section-num';
+  num.textContent = String(si + 1).padStart(2, '0');
+
+  const nameInp = document.createElement('input');
+  nameInp.className = 'section-name';
+  nameInp.type = 'text';
+  nameInp.value = sec.name;
+  nameInp.placeholder = 'Nome…';
+  nameInp.addEventListener('input', () => { sec.name = nameInp.value; });
+
+  const acts = document.createElement('div');
+  acts.className = 'section-actions';
+
+  const addBarBtn = document.createElement('button');
+  addBarBtn.className = 'sec-btn';
+  addBarBtn.textContent = '+ compasso';
+  addBarBtn.onclick = () => { sec.bars.push(makeBar(16)); renderSection_update(sec, block); };
+
+  const delBarBtn = document.createElement('button');
+  delBarBtn.className = 'sec-btn';
+  delBarBtn.textContent = '− compasso';
+  delBarBtn.onclick = () => {
+    if (sec.bars.length > 1) { sec.bars.pop(); renderSection_update(sec, block); }
+  };
+
+  const delSecBtn = document.createElement('button');
+  delSecBtn.className = 'sec-btn del';
+  delSecBtn.textContent = '✕';
+  delSecBtn.onclick = () => {
+    if (sections.length === 1) return;
+    sections = sections.filter(s => s.id !== sec.id);
+    render();
+  };
+
+  acts.append(addBarBtn, delBarBtn, delSecBtn);
+  hdr.append(num, nameInp, acts);
+  block.appendChild(hdr);
+
+  const canvas = document.createElement('div');
+  canvas.className = 'tab-canvas';
+  canvas.dataset.canvas = sec.id;
+  block.appendChild(canvas);
+
+  renderCanvas(sec, canvas);
+  return block;
+}
+
+function renderSection_update(sec, block) {
+  const canvas = block.querySelector(`[data-canvas="${sec.id}"]`);
+  renderCanvas(sec, canvas);
+}
+
+function renderCanvas(sec, canvas) {
+  canvas.innerHTML = '';
+  const available = canvas.clientWidth || (window.innerWidth - 48 - 24);
+  const cellW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell-w')) || 26;
+  const labelW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--label-w')) || 34;
+
+  const barWidth = (barCols) => barCols * cellW + 2;
+
+  const lines = [];
+  let currentLine = [];
+  let currentWidth = labelW;
+
+  sec.bars.forEach((bar, bi) => {
+    const bw = barWidth(bar[0].length);
+    if (currentLine.length > 0 && currentWidth + bw > available - 10) {
+      lines.push(currentLine);
+      currentLine = [];
+      currentWidth = labelW;
+    }
+    currentLine.push({ bar, bi });
+    currentWidth += bw;
+  });
+  if (currentLine.length > 0) lines.push(currentLine);
+
+  lines.forEach((lineItems, li) => {
+    const lineEl = document.createElement('div');
+    lineEl.className = 'tab-line';
+
+    STRING_NAMES.forEach((str, si) => {
+      const rowEl = document.createElement('div');
+      rowEl.className = 'string-row';
+
+      const lbl = document.createElement('div');
+      lbl.className = 'string-label';
+      lbl.textContent = str + '|';
+      rowEl.appendChild(lbl);
+
+      const wrap = document.createElement('div');
+      wrap.className = 'cells-wrap';
+
+      lineItems.forEach(({ bar, bi }, idx) => {
+        if (idx > 0) {
+          const bd = document.createElement('div');
+          bd.className = 'bar-div';
+          wrap.appendChild(bd);
+        }
+
+        bar[si].forEach((cellVal, ci) => {
+          const cell = document.createElement('div');
+          cell.className = 'cell';
+
+          const inp = document.createElement('input');
+          inp.type = 'text';
+          inp.maxLength = 3;
+          inp.value = cellVal || '-';
+          inp.dataset.si = si;
+          inp.dataset.bi = bi;
+          inp.dataset.ci = ci;
+          inp.dataset.secid = sec.id;
+
+          styleCell(inp);
+          inp.addEventListener('focus', () => inp.select());
+          inp.addEventListener('input', () => {
+            let v = inp.value;
+            if (v === '') v = '-';
+            const s = sections.find(s => s.id === inp.dataset.secid);
+            if (s) s.bars[+inp.dataset.bi][+inp.dataset.si][+inp.dataset.ci] = v;
+            styleCell(inp);
+          });
+
+          inp.addEventListener('keydown', (e) => {
+            const si2 = +inp.dataset.si, bi2 = +inp.dataset.bi, ci2 = +inp.dataset.ci;
+            const secId = inp.dataset.secid;
+            if (e.key === 'ArrowRight' || (e.key === 'Tab' && !e.shiftKey)) {
+              e.preventDefault(); focusNext(secId, si2, bi2, ci2, 1);
+            } else if (e.key === 'ArrowLeft' || (e.key === 'Tab' && e.shiftKey)) {
+              e.preventDefault(); focusNext(secId, si2, bi2, ci2, -1);
+            } else if (e.key === 'ArrowDown') {
+              e.preventDefault(); focusString(secId, si2 + 1, bi2, ci2);
+            } else if (e.key === 'ArrowUp') {
+              e.preventDefault(); focusString(secId, si2 - 1, bi2, ci2);
+            } else if (e.key === 'Delete') {
+              inp.value = '-';
+              const s = sections.find(s => s.id === secId);
+              if (s) s.bars[bi2][si2][ci2] = '-';
+              styleCell(inp); e.preventDefault();
+            } else if (e.key === '|') {
+              e.preventDefault();
+              const s = sections.find(s => s.id === secId);
+              if (s) { s.bars.push(makeBar(s.bars[0][0].length)); renderCanvas(s, canvas); }
+            }
+          });
+
+          cell.appendChild(inp);
+          wrap.appendChild(cell);
+        });
+
+        const endDiv = document.createElement('div');
+        endDiv.className = 'bar-div';
+        wrap.appendChild(endDiv);
+      });
+
+      rowEl.appendChild(wrap);
+      lineEl.appendChild(rowEl);
+    });
+    canvas.appendChild(lineEl);
+  });
+}
+
+function styleCell(inp) {
+  inp.classList.toggle('has-note', inp.value !== '-' && inp.value !== '');
+}
+
+/* ═══════════════════════════════════════════════
+   FOCUS HELPERS
+   ═══════════════════════════════════════════════ */
+function getInput(secId, si, bi, ci) {
+  return document.querySelector(`input[data-secid="${secId}"][data-si="${si}"][data-bi="${bi}"][data-ci="${ci}"]`);
+}
+function focusNext(secId, si, bi, ci, dir) {
+  const sec = sections.find(s => s.id === secId);
+  if (!sec) return;
+  let nci = ci + dir, nbi = bi;
+  const barLen = sec.bars[bi][si].length;
+  if (nci >= barLen) { nbi++; nci = 0; }
+  if (nci < 0) { nbi--; if (nbi >= 0) nci = sec.bars[nbi][si].length - 1; }
+  if (nbi < 0 || nbi >= sec.bars.length) return;
+  const t = getInput(secId, si, nbi, nci);
+  if (t) { t.focus(); t.select(); }
+}
+function focusString(secId, si, bi, ci) {
+  if (si < 0 || si > 5) return;
+  const t = getInput(secId, si, bi, ci);
+  if (t) { t.focus(); t.select(); }
+}
+
+/* ═══════════════════════════════════════════════
+   ACTIONS
+   ═══════════════════════════════════════════════ */
+function addSection() {
+  sectionCount++;
+  sections.push(makeSection(`Seção ${sectionCount}`, 2, 14));
+  render();
+  setTimeout(() => {
+    const blocks = document.querySelectorAll('.section-block');
+    blocks[blocks.length - 1].scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 50);
+}
+
+function addBarToLast() {
+  if (sections.length === 0) return;
+  const sec = sections[sections.length - 1];
+  const refCols = sec.bars[0][0].length;
+  sec.bars.push(makeBar(refCols));
+  const block = document.querySelector(`[data-sid="${sec.id}"]`);
+  if (block) {
+    const canvas = block.querySelector(`[data-canvas="${sec.id}"]`);
+    renderCanvas(sec, canvas);
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   EXPORT / COPY
+   ═══════════════════════════════════════════════ */
+function buildText() {
+  const title = document.getElementById('songTitle').value;
+  let out = title ? `${title}\n${'─'.repeat(title.length)}\n\n` : '';
+  sections.forEach((sec, si) => {
+    out += `[ ${sec.name || `Seção ${si+1}`} ]\n`;
+    const rows = STRING_NAMES.map((str, si2) => {
+      let line = str + '|';
+      sec.bars.forEach(bar => {
+        bar[si2].forEach(c => { line += (c === '' ? '-' : c).padEnd(2, '-'); });
+        line += '|';
+      });
+      return line;
+    });
+    out += rows.join('\n') + '\n\n';
+  });
+  return out.trim();
+}
+
+function copyAll() {
+  navigator.clipboard.writeText(buildText()).then(() => showToast('COPIADO!'));
+}
+
+function exportTxt() {
+  const text = buildText();
+  const title = document.getElementById('songTitle').value || 'tab';
+  const blob = new Blob([text], { type: 'text/plain; charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${title.replace(/\s+/g,'_')}.txt`;
+  a.click();
+  showToast('EXPORTADO!');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+/* ═══════════════════════════════════════════════
+   INIT
+   ═══════════════════════════════════════════════ */
+const loaded = loadFromHash();
+if (!loaded) {
+  sections = [ makeSectionFromInitial() ];
+}
+render();
+
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    sections.forEach(sec => {
+      const block = document.querySelector(`[data-sid="${sec.id}"]`);
+      if (block) {
+        const canvas = block.querySelector(`[data-canvas="${sec.id}"]`);
+        if (canvas) renderCanvas(sec, canvas);
+      }
+    });
+  }, 100);
+});
+</script>
+</body>
+</html>
